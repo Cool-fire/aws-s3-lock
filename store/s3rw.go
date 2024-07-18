@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 
@@ -49,12 +49,59 @@ func New(opts S3StoreOpts) (*S3rw ,error) {
 }
 
 func (s *S3rw) GetLockOwner() (*LockOwner, error) {
-	// TODO
-	return nil, errors.New("method not implemented")
+	bucketKey := fmt.Sprintf("%s%s-owner.json", s.opts.awsLockFolder, s.opts.lockName)
+	getLockOwnerObject := &s3.GetObjectInput{
+		Bucket: aws.String(s.opts.awsBucketName),
+		Key: &bucketKey,
+	}
+
+	output, err := s.s3Client.GetObject(context.TODO(), getLockOwnerObject)
+	if err != nil {
+		return nil, fmt.Errorf("error getting the lock owner")
+	}
+
+	body, err := io.ReadAll(output.Body)
+	defer output.Body.Close()
+
+
+	if err != nil {
+		return nil, fmt.Errorf("error reading the lock owner file")
+	}
+
+	var lockOwner LockOwner
+	err = json.Unmarshal(body, &lockOwner)
+	if err != nil {
+		return nil, fmt.Errorf("error reading the owner file")
+	}
+
+	return &lockOwner, nil
 }
 
 func (s *S3rw) GetLockCounter() (int, error) {
-	return -1 , errors.New("method not implemented")
+	bucketKey := fmt.Sprintf("%s%s-counter.json", s.opts.awsLockFolder, s.opts.lockName)
+	getLockOwnerObject := &s3.GetObjectInput{
+		Bucket: aws.String(s.opts.awsBucketName),
+		Key: &bucketKey,
+	}
+
+	output, err := s.s3Client.GetObject(context.TODO(), getLockOwnerObject)
+	if err != nil {
+		return -1, fmt.Errorf("error getting the lock counter")
+	}
+
+	body, err := io.ReadAll(output.Body)
+	defer output.Body.Close()
+
+	if err != nil {
+		return -1, fmt.Errorf("error reading the lock counter file")
+	}
+	
+	b := string(body)
+	if b == "" {
+		return -1, fmt.Errorf("error reading the lock counter file")
+	}
+
+	return strconv.Atoi(b)
 }
 
 func (s *S3rw) SetLockCounter(counter int) error {	
