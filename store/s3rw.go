@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 type S3rw struct {
@@ -20,9 +22,9 @@ type S3rw struct {
 }
 
 type S3StoreOpts struct {
-	awsBucketName string
-	awsLockFolder string
-	lockName string
+	AwsBucketName string
+	AwsLockFolder string
+	LockName string
 }
 
 func (opts S3StoreOpts) validate() error {
@@ -30,7 +32,7 @@ func (opts S3StoreOpts) validate() error {
 	return nil
 }
 
-func New(opts S3StoreOpts) (*S3rw ,error) {
+func NewS3Store(opts S3StoreOpts) (*S3rw ,error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO()) 
 	if err != nil {
 		return nil, fmt.Errorf("error loading s3 config %w", err)
@@ -49,14 +51,19 @@ func New(opts S3StoreOpts) (*S3rw ,error) {
 }
 
 func (s *S3rw) GetLockOwner() (*LockOwner, error) {
-	bucketKey := fmt.Sprintf("%s%s-owner.json", s.opts.awsLockFolder, s.opts.lockName)
+	bucketKey := fmt.Sprintf("%s%s-owner.json", s.opts.AwsLockFolder, s.opts.LockName)
 	getLockOwnerObject := &s3.GetObjectInput{
-		Bucket: aws.String(s.opts.awsBucketName),
+		Bucket: aws.String(s.opts.AwsBucketName),
 		Key: &bucketKey,
 	}
 
 	output, err := s.s3Client.GetObject(context.TODO(), getLockOwnerObject)
+
 	if err != nil {
+		var nsk *types.NoSuchKey
+		if errors.As(err, &nsk) {
+			return nil, nil
+		}
 		return nil, fmt.Errorf("error getting the lock owner")
 	}
 
@@ -77,38 +84,49 @@ func (s *S3rw) GetLockOwner() (*LockOwner, error) {
 	return &lockOwner, nil
 }
 
-func (s *S3rw) GetLockCounter() (int, error) {
-	bucketKey := fmt.Sprintf("%s%s-counter.json", s.opts.awsLockFolder, s.opts.lockName)
+func (s *S3rw) GetLockCounter() (*LockCounter, error) {
+	bucketKey := fmt.Sprintf("%s%s-counter.json", s.opts.AwsLockFolder, s.opts.LockName)
 	getLockOwnerObject := &s3.GetObjectInput{
-		Bucket: aws.String(s.opts.awsBucketName),
+		Bucket: aws.String(s.opts.AwsBucketName),
 		Key: &bucketKey,
 	}
 
 	output, err := s.s3Client.GetObject(context.TODO(), getLockOwnerObject)
 	if err != nil {
-		return -1, fmt.Errorf("error getting the lock counter")
+		var nsk *types.NoSuchKey
+		if errors.As(err, &nsk) {
+			return nil, nil 
+		}
+		return nil, fmt.Errorf("error getting the lock counter")
 	}
 
 	body, err := io.ReadAll(output.Body)
 	defer output.Body.Close()
 
 	if err != nil {
-		return -1, fmt.Errorf("error reading the lock counter file")
+		return nil, fmt.Errorf("error reading the lock counter file")
 	}
 	
 	b := string(body)
 	if b == "" {
-		return -1, fmt.Errorf("error reading the lock counter file")
+		return nil, fmt.Errorf("error reading the lock counter file")
 	}
 
-	return strconv.Atoi(b)
+	c, e := strconv.Atoi(b); 
+	if e != nil{
+		return nil, fmt.Errorf("error reading the lock counter file")
+	}
+
+	return &LockCounter{
+		counter: c,
+	}, nil
 }
 
-func (s *S3rw) SetLockCounter(counter int) error {	
-	contents := strconv.Itoa(counter)
-	bucketKey := fmt.Sprintf("%s%s-counter.json", s.opts.awsLockFolder, s.opts.lockName)
+func (s *S3rw) SetLockCounter(c LockCounter) error {	
+	contents := strconv.Itoa(c.counter)
+	bucketKey := fmt.Sprintf("%s%s-counter.json", s.opts.AwsLockFolder, s.opts.LockName)
 	putObjectRequest := &s3.PutObjectInput{
-		Bucket: aws.String(s.opts.awsBucketName),
+		Bucket: aws.String(s.opts.AwsBucketName),
 		Key: aws.String(bucketKey),
 		Body: strings.NewReader(contents),
 	}
@@ -116,7 +134,7 @@ func (s *S3rw) SetLockCounter(counter int) error {
 	_, err := s.s3Client.PutObject(context.TODO(), putObjectRequest)
 
 	if err != nil {
-		return fmt.Errorf("error setting the lock counter %d", counter)
+		return fmt.Errorf("error setting the lock counter %d", c.counter)
 	}
 	return nil
 }
@@ -127,9 +145,9 @@ func (s *S3rw) SetLockOwner(owner LockOwner) error {
 		return fmt.Errorf("unable to set lock owner, Error marshalling")
 	}
 
-	bucketKey := fmt.Sprintf("%s%s-owner.json", s.opts.awsLockFolder, s.opts.lockName)
+	bucketKey := fmt.Sprintf("%s%s-owner.json", s.opts.AwsLockFolder, s.opts.LockName)
 	putObjectRequest := &s3.PutObjectInput{
-		Bucket: aws.String(s.opts.awsBucketName),
+		Bucket: aws.String(s.opts.AwsBucketName),
 		Key: aws.String(bucketKey),
 		Body: bytes.NewReader(jsonData),
 	}

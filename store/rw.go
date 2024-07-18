@@ -7,8 +7,8 @@ import (
 type LockReadWriter interface {
 	GetLockOwner() (*LockOwner, error)
 	SetLockOwner(LockOwner) error
-	SetLockCounter(int) error 
-	GetLockCounter() (int, error)
+	SetLockCounter(LockCounter) error 
+	GetLockCounter() (*LockCounter, error)
 }
 
 type LockOwner struct {
@@ -20,3 +20,7 @@ func (l LockOwner) getRemainingTimeinSeconds() int64 {
 	return time.Now().Unix() - l.ExpiryTime
 }
 
+
+type LockCounter struct {
+	counter int
+} 

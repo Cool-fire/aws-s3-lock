@@ -1,36 +1,45 @@
 package s3lock
 
-import "errors"
+import (
+	"fmt"
+
+	"github.com/Cool-fire/aws-s3-lock/store"
+)
 
 
 const ACQUIRE_LOCK_MAX_DURATION_IN_MINUTES int = 2
 
-type Intializabel interface {
-	Init() error
-}
+type IsLockAcquired bool
 
 type S3Lock struct {
-	awsBucketName string
-	awsLockFolder string
-	lockName string
+	rw store.LockReadWriter
 }
 
-func New(awsBucketName string, awsLockFolder string, lockName string) *S3Lock {
-	return &S3Lock{
-		awsBucketName: awsBucketName,
-		awsLockFolder: awsLockFolder,
-		lockName: lockName,
+
+func New(awsBucketName string, awsLockFolder string, lockName string) (*S3Lock, error) {
+	s3Opts := store.S3StoreOpts{
+		AwsBucketName: awsBucketName,
+		AwsLockFolder: awsLockFolder,
+		LockName: lockName,
 	}
+	s3rw, err  := store.NewS3Store(s3Opts)
+	if err != nil {
+		return nil, fmt.Errorf("error creating S3lock %w", err)
+	}
+
+	return &S3Lock{
+		rw: s3rw,
+	}, nil	
 } 
 
-func (s *S3Lock) Init() error {
-	if s.awsBucketName == "" || s.awsLockFolder == "" || s.lockName == "" {
-		return errors.New("lock not properly configured")
+func (s *S3Lock) acquireLock(newOwnerName string) (IsLockAcquired, error) {
+	_, err  := s.rw.GetLockCounter()
+	if err != nil {
+		return false, fmt.Errorf("unable to acquire lock %w", err)
 	}
-	return nil
-}
 
-func (s *S3Lock) acquireLock(newOwnerName string) {
+	// TODO
+	return false, nil 
 
 }
 
@@ -39,5 +48,5 @@ func (s *S3Lock) getLockStatus(expectedLockOwnerName string) {
 }
 
 func releaseLock(expectedCurrentOwnerName string) {
-	
+
 }
