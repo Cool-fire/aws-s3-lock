@@ -9,6 +9,7 @@ type LockReadWriter interface {
 	SetLockOwner(LockOwner) error
 	SetLockCounter(LockCounter) error 
 	GetLockCounter() (*LockCounter, error)
+	RollBackLockOwner() error 
 }
 
 type LockOwner struct {
@@ -16,11 +17,10 @@ type LockOwner struct {
 	ExpiryTime int64 `json:"expiryTime"` 
 }
 
-func (l LockOwner) getRemainingTimeinSeconds() int64 {
+func (l LockOwner) GetRemainingTimeinSeconds() int64 {
 	return time.Now().Unix() - l.ExpiryTime
 }
 
-
 type LockCounter struct {
-	counter int
+	Counter int
 } 

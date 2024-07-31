@@ -3,16 +3,15 @@ package s3lock
 type ErrorCode int
 
 const (
-	None ErrorCode = iota
-	LockAlreadyOwned
+	LockAlreadyOwned = iota
 	MultipleSavesInProgress
 	TooSlowAbandoned
 	NoLockAcquired
 	DuringLockRelease
 )
 
-func NewS3LockError(errorCode ErrorCode, msg string) S3LockError {
-	return S3LockError{
+func NewS3LockError(errorCode ErrorCode, msg string) *S3LockError {
+	return &S3LockError{
 		Code: errorCode,
 		Msg: msg,
 	}
