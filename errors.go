@@ -13,13 +13,13 @@ const (
 func NewS3LockError(errorCode ErrorCode, msg string) *S3LockError {
 	return &S3LockError{
 		Code: errorCode,
-		Msg: msg,
+		Msg:  msg,
 	}
 }
 
 type S3LockError struct {
 	Code ErrorCode
-	Msg string
+	Msg  string
 }
 
 func (u S3LockError) Error() string {

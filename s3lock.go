@@ -8,24 +8,22 @@ import (
 	"github.com/Cool-fire/aws-s3-lock/store"
 )
 
-
 const ACQUIRE_LOCK_MAX_DURATION_IN_MINUTES int = 2
 
 type IsLockAcquired bool
 
 type S3Lock struct {
 	maxHoldTimeMins int
-	rw store.LockReadWriter
+	rw              store.LockReadWriter
 }
-
 
 func New(awsBucketName string, awsLockFolder string, lockName string, maxHoldTimeMins int) (*S3Lock, error) {
 	s3Opts := store.S3StoreOpts{
 		AwsBucketName: awsBucketName,
 		AwsLockFolder: awsLockFolder,
-		LockName: lockName,
+		LockName:      lockName,
 	}
-	s3rw, err  := store.NewS3Store(s3Opts)
+	s3rw, err := store.NewS3Store(s3Opts)
 	if err != nil {
 		return nil, fmt.Errorf("error creating S3lock %w", err)
 	}
@@ -35,15 +33,15 @@ func New(awsBucketName string, awsLockFolder string, lockName string, maxHoldTim
 	}
 
 	return &S3Lock{
-		rw: s3rw,
+		rw:              s3rw,
 		maxHoldTimeMins: maxHoldTimeMins,
-	}, nil	
-} 
+	}, nil
+}
 
 func (s *S3Lock) AcquireLock(newOwnerName string) (IsLockAcquired, *S3LockError) {
 
 	// Initial lock counter
-	ilc, err  := s.rw.GetLockCounter()
+	ilc, err := s.rw.GetLockCounter()
 	if err != nil {
 		return false, NewS3LockError(NoLockAcquired, err.Error())
 	}
@@ -55,7 +53,7 @@ func (s *S3Lock) AcquireLock(newOwnerName string) (IsLockAcquired, *S3LockError)
 	}
 
 	var isLockExpired bool = false
-	if (clo == nil || clo.GetRemainingTimeinSeconds() <= int64(s.maxHoldTimeMins) * 60) {
+	if clo == nil || clo.GetRemainingTimeinSeconds() <= int64(s.maxHoldTimeMins)*60 {
 		isLockExpired = true
 	}
 
@@ -63,7 +61,7 @@ func (s *S3Lock) AcquireLock(newOwnerName string) (IsLockAcquired, *S3LockError)
 		acquireLockDurationInMins := (s.maxHoldTimeMins + ACQUIRE_LOCK_MAX_DURATION_IN_MINUTES)
 		lockExprytimeAsEpoch := time.Now().Add(time.Minute * time.Duration(acquireLockDurationInMins)).Unix()
 		clo = &store.LockOwner{
-			Name: newOwnerName,
+			Name:       newOwnerName,
 			ExpiryTime: lockExprytimeAsEpoch,
 		}
 
@@ -79,14 +77,14 @@ func (s *S3Lock) AcquireLock(newOwnerName string) (IsLockAcquired, *S3LockError)
 		return false, NewS3LockError(NoLockAcquired, err.Error())
 	}
 
-	// Revert 
-	if ((ilc == nil && clc == nil)|| (ilc.Counter == clc.Counter)) {
+	// Revert
+	if (ilc == nil && clc == nil) || (ilc.Counter == clc.Counter) {
 		var newCounter int = 0
 		if clc != nil {
 			newCounter = clc.Counter + 1
 		}
 
-		nlc := store.LockCounter {
+		nlc := store.LockCounter{
 			Counter: newCounter,
 		}
 		if err := s.rw.SetLockCounter(nlc); err != nil {
@@ -95,7 +93,7 @@ func (s *S3Lock) AcquireLock(newOwnerName string) (IsLockAcquired, *S3LockError)
 		}
 	} else {
 		defer s.releaseOwner(newOwnerName)
-		return false, NewS3LockError(MultipleSavesInProgress,  "There is another attempting to acquire the lock at the same time. Please retry.")
+		return false, NewS3LockError(MultipleSavesInProgress, "There is another attempting to acquire the lock at the same time. Please retry.")
 	}
 
 	// Lock Owner - Final Check
@@ -106,12 +104,12 @@ func (s *S3Lock) AcquireLock(newOwnerName string) (IsLockAcquired, *S3LockError)
 
 	if clo == nil {
 		return false, NewS3LockError(NoLockAcquired, "Lock is not currently held by anyone but should be")
-	} else if (newOwnerName != clo.Name) {
+	} else if newOwnerName != clo.Name {
 		return false, NewS3LockError(LockAlreadyOwned, fmt.Sprintf("Lock is currentlyheld by owner %s, wait for %d seconds before retrying", clo.Name, clo.GetRemainingTimeinSeconds()))
-	} else if (clo.GetRemainingTimeinSeconds() <= int64(s.maxHoldTimeMins) * 60) {
+	} else if clo.GetRemainingTimeinSeconds() <= int64(s.maxHoldTimeMins)*60 {
 		return false, NewS3LockError(TooSlowAbandoned, fmt.Sprintf("Acquiring the lock took too long, you potentially do not have enough time to perform your opertion limit set to %d minutes", clo.GetRemainingTimeinSeconds()))
 	}
-	
+
 	return true, nil
 }
 
@@ -124,7 +122,7 @@ func (s *S3Lock) releaseOwner(newOwnerName string) {
 }
 
 func (s *S3Lock) GetLockOwner() (*store.LockOwner, error) {
-	clo, err  := s.rw.GetLockOwner()
+	clo, err := s.rw.GetLockOwner()
 	if err != nil {
 		return nil, errors.New("Error getting the current lock owner")
 	}
@@ -134,7 +132,7 @@ func (s *S3Lock) GetLockOwner() (*store.LockOwner, error) {
 }
 
 func (s *S3Lock) ReleaseLock(expectedCurrentOwnerName string) error {
-	clo, err  := s.rw.GetLockOwner()
+	clo, err := s.rw.GetLockOwner()
 	if err != nil {
 		return errors.New("Error releasing the lock")
 	}

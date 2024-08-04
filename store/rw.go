@@ -7,14 +7,14 @@ import (
 type LockReadWriter interface {
 	GetLockOwner() (*LockOwner, error)
 	SetLockOwner(LockOwner) error
-	SetLockCounter(LockCounter) error 
+	SetLockCounter(LockCounter) error
 	GetLockCounter() (*LockCounter, error)
-	RollBackLockOwner() error 
+	RollBackLockOwner() error
 }
 
 type LockOwner struct {
-	Name string `json:"name"`
-	ExpiryTime int64 `json:"expiryTime"` 
+	Name       string `json:"name"`
+	ExpiryTime int64  `json:"expiryTime"`
 }
 
 func (l LockOwner) GetRemainingTimeinSeconds() int64 {
@@ -23,4 +23,4 @@ func (l LockOwner) GetRemainingTimeinSeconds() int64 {
 
 type LockCounter struct {
 	Counter int
-} 
+}

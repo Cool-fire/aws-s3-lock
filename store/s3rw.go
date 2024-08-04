@@ -18,13 +18,13 @@ import (
 
 type S3rw struct {
 	s3Client *s3.Client
-	opts S3StoreOpts	
+	opts     S3StoreOpts
 }
 
 type S3StoreOpts struct {
 	AwsBucketName string
 	AwsLockFolder string
-	LockName string
+	LockName      string
 }
 
 func (opts S3StoreOpts) validate() error {
@@ -32,8 +32,8 @@ func (opts S3StoreOpts) validate() error {
 	return nil
 }
 
-func NewS3Store(opts S3StoreOpts) (*S3rw ,error) {
-	cfg, err := config.LoadDefaultConfig(context.TODO()) 
+func NewS3Store(opts S3StoreOpts) (*S3rw, error) {
+	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return nil, fmt.Errorf("error loading s3 config %w", err)
 	}
@@ -46,7 +46,7 @@ func NewS3Store(opts S3StoreOpts) (*S3rw ,error) {
 
 	return &S3rw{
 		s3Client: client,
-		opts: opts,
+		opts:     opts,
 	}, nil
 }
 
@@ -54,7 +54,7 @@ func (s *S3rw) GetLockOwner() (*LockOwner, error) {
 	bucketKey := fmt.Sprintf("%s%s-owner.json", s.opts.AwsLockFolder, s.opts.LockName)
 	getLockOwnerObject := &s3.GetObjectInput{
 		Bucket: aws.String(s.opts.AwsBucketName),
-		Key: &bucketKey,
+		Key:    &bucketKey,
 	}
 
 	output, err := s.s3Client.GetObject(context.TODO(), getLockOwnerObject)
@@ -69,7 +69,6 @@ func (s *S3rw) GetLockOwner() (*LockOwner, error) {
 
 	body, err := io.ReadAll(output.Body)
 	defer output.Body.Close()
-
 
 	if err != nil {
 		return nil, fmt.Errorf("error reading the lock owner file")
@@ -88,14 +87,14 @@ func (s *S3rw) GetLockCounter() (*LockCounter, error) {
 	bucketKey := fmt.Sprintf("%s%s-counter.json", s.opts.AwsLockFolder, s.opts.LockName)
 	getLockOwnerObject := &s3.GetObjectInput{
 		Bucket: aws.String(s.opts.AwsBucketName),
-		Key: &bucketKey,
+		Key:    &bucketKey,
 	}
 
 	output, err := s.s3Client.GetObject(context.TODO(), getLockOwnerObject)
 	if err != nil {
 		var nsk *types.NoSuchKey
 		if errors.As(err, &nsk) {
-			return nil, nil 
+			return nil, nil
 		}
 		return nil, fmt.Errorf("error getting the lock counter")
 	}
@@ -106,14 +105,14 @@ func (s *S3rw) GetLockCounter() (*LockCounter, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error reading the lock counter file")
 	}
-	
+
 	b := string(body)
 	if b == "" {
 		return nil, fmt.Errorf("error reading the lock counter file")
 	}
 
-	c, e := strconv.Atoi(b); 
-	if e != nil{
+	c, e := strconv.Atoi(b)
+	if e != nil {
 		return nil, fmt.Errorf("error reading the lock counter file")
 	}
 
@@ -122,15 +121,15 @@ func (s *S3rw) GetLockCounter() (*LockCounter, error) {
 	}, nil
 }
 
-func (s *S3rw) SetLockCounter(c LockCounter) error {	
+func (s *S3rw) SetLockCounter(c LockCounter) error {
 	contents := strconv.Itoa(c.Counter)
 	bucketKey := fmt.Sprintf("%s%s-counter.json", s.opts.AwsLockFolder, s.opts.LockName)
 	putObjectRequest := &s3.PutObjectInput{
 		Bucket: aws.String(s.opts.AwsBucketName),
-		Key: aws.String(bucketKey),
-		Body: strings.NewReader(contents),
+		Key:    aws.String(bucketKey),
+		Body:   strings.NewReader(contents),
 	}
-	
+
 	_, err := s.s3Client.PutObject(context.TODO(), putObjectRequest)
 
 	if err != nil {
@@ -148,8 +147,8 @@ func (s *S3rw) SetLockOwner(owner LockOwner) error {
 	bucketKey := fmt.Sprintf("%s%s-owner.json", s.opts.AwsLockFolder, s.opts.LockName)
 	putObjectRequest := &s3.PutObjectInput{
 		Bucket: aws.String(s.opts.AwsBucketName),
-		Key: aws.String(bucketKey),
-		Body: bytes.NewReader(jsonData),
+		Key:    aws.String(bucketKey),
+		Body:   bytes.NewReader(jsonData),
 	}
 
 	_, err = s.s3Client.PutObject(context.TODO(), putObjectRequest)
@@ -164,7 +163,7 @@ func (s *S3rw) RollBackLockOwner() error {
 	bucketKey := fmt.Sprintf("%s%s-owner.json", s.opts.AwsLockFolder, s.opts.LockName)
 	deleteObjectRequest := &s3.DeleteObjectInput{
 		Bucket: aws.String(s.opts.AwsBucketName),
-		Key: aws.String(bucketKey),
+		Key:    aws.String(bucketKey),
 	}
 
 	_, err := s.s3Client.DeleteObject(context.TODO(), deleteObjectRequest)
@@ -174,4 +173,3 @@ func (s *S3rw) RollBackLockOwner() error {
 
 	return nil
 }
-
